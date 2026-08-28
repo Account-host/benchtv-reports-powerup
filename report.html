@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BenchTV Reports</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+
+    <div class="report-header">
+        <div>
+            <h1>BenchTV — Task Reports</h1>
+            <div class="subtitle">By role, by person, by project</div>
+        </div>
+        <div class="ticker" id="ticker"></div>
+    </div>
+
+    <div class="filters" id="filters" style="display:none;">
+        <select id="filterRole">
+            <option value="">All Roles</option>
+        </select>
+        <select id="filterPerson">
+            <option value="">All People</option>
+        </select>
+        <select id="filterProject">
+            <option value="">All Projects</option>
+        </select>
+        <div class="status-toggle">
+            <button data-status="all" class="active">All</button>
+            <button data-status="open">Open</button>
+            <button data-status="completed">Completed</button>
+        </div>
+        <button class="btn-export" id="exportBtn">Export CSV</button>
+    </div>
+
+    <div id="content">
+        <div class="loading-state">Loading board data…</div>
+    </div>
+
+    <script>
+        var t = window.TrelloPowerUp.iframe({appName: "BenchTV Reports"});
+        // Real Trello key/token now live server-side in the Cloudflare Worker
+        // as secrets. This page never sees them - it only calls the proxy.
+        var WORKER_BASE = "https://benchtv-trello-proxy.YOUR_SUBDOMAIN.workers.dev/trello"; // TODO: set after deploying the worker
+        var STORE_SECRET = "ee66f66d-c332-4ac5-9987-8632d7ee908e"; // TODO: also move this to the worker if it's sensitive
+        // The tracker Zap's very first successful run wrote every pre-existing
+        // assignment with this exact timestamp as a baseline (since it had no way
+        // to know their real assignment dates). Treat that specific timestamp as
+        // "unknown" rather than showing a misleading date.
+        var BASELINE_TIMESTAMP = "2026-08-27T09:25:49.513Z";
+        var BOARD_ID = null;
+        var ALL_ROWS = [];
+        var currentStatus = "all";
+
+        // Derive a role name from a checklist name like "First Edit – Video Editor" -> "Video Editor"
+        function deriveRole(checklistName) {
+            var m = checklistName.match(/\s[–-]\s(.+)$/);
+            return m ? m[1].trim() : checklistName;
+        }
+
+        function fmtDate(d) {
+            if (!d) return "—";
+            var dt = (d instanceof Date) ? d : new Date(d);
+            if (isNaN(dt)) return "—";
+            return dt.toLocaleDateString("en-AU", {day: "2-digit", month: "short", year: "numeric"});
+        }
+
+        function apiGet(path) {
+            return fetch(WORKER_BASE + path)
+                .then(function (r) {
+                    if (!r.ok) throw new Error("Trello API error " + r.status + " for " + path);
+                    return r.json();
+                });
+        }
+
+        function loadData() {
+            return Promise.all([
+                apiGet("/boards/" + BOARD_ID + "/cards?checklists=all&checklist_fields=all&fields=name,shortUrl,idList,closed,idMembers"),
+                apiGet("/boards/" + BOARD_ID + "/members"),
+                apiGet("/boards/" + BOARD_ID + "/lists"),
+                fetch("https://store.zapier.com/api/records?secret=" + STORE_SECRET).then(function (r) {return r.json();}).catch(function () {return {};})
+            ]).then(function (results) {
+                var cards = results[0], members = results[1], lists = results[2], assignmentStore = results[3] || {};
+
+                var memberMap = {};
+                members.forEach(function (m) {memberMap[m.id] = m.fullName;});
+
+                var templateListIds = lists
+                    .filter(function (l) {return /master template/i.test(l.name);})
+                    .map(function (l) {return l.id;});
+
+                var relevantCards = cards.filter(function (c) {
+                    return !c.closed && templateListIds.indexOf(c.idList) === -1;
+                });
+
+                // Only fetch card activity logs for cards with at least one completed
+                // checkitem - this is needed for the "Completed" date column (assigned
+                // dates now come from the Storage by Zapier tracker instead).
+                var cardsNeedingActions = [];
+                relevantCards.forEach(function (card) {
+                    var needs = (card.checklists || []).some(function (cl) {
+                        return (cl.checkItems || []).some(function (it) {return it.state === "complete";});
+                    });
+                    if (needs) cardsNeedingActions.push(card.id);
+                });
+
+                return Promise.all(
+                    cardsNeedingActions.map(function (cardId) {
+                        return apiGet("/cards/" + cardId + "/actions?filter=updateCheckItemStateOnCard&limit=1000")
+                            .catch(function () {return [];})
+                            .then(function (actions) {return {cardId: cardId, actions: actions};});
+                    })
+                ).then(function (actionResults) {
+                    var actionsByCard = {};
+                    actionResults.forEach(function (r) {actionsByCard[r.cardId] = r.actions;});
+                    return buildRows(relevantCards, memberMap, actionsByCard, assignmentStore);
+                });
+            });
+        }
+
+        function buildRows(cards, memberMap, actionsByCard, assignmentStore) {
+            var rows = [];
+            var now = new Date();
+
+            cards.forEach(function (card) {
+                var actions = actionsByCard[card.id] || [];
+
+                (card.checklists || []).forEach(function (checklist) {
+                    (checklist.checkItems || []).forEach(function (item) {
+                        if (!item.idMember) return; // only assigned items are in-scope for this report
+
+                        // Assigned date comes from our own Storage by Zapier tracker
+                        // (Trello's own activity log never records checklist-item
+                        // assignment changes, so this had to be tracked separately).
+                        var assignedDate = null;
+                        var stored = assignmentStore["chk_" + item.id];
+                        if (stored) {
+                            try {
+                                var parsed = JSON.parse(stored);
+                                if (parsed.m === item.idMember && parsed.d !== BASELINE_TIMESTAMP) assignedDate = parsed.d;
+                            } catch (e) { /* ignore malformed entries */}
+                        }
+
+                        // Find most recent completion event for this item
+                        var completedDate = null;
+                        if (item.state === "complete") {
+                            actions
+                                .filter(function (a) {return a.type === "updateCheckItemStateOnCard" && a.data && a.data.checkItem && a.data.checkItem.id === item.id;})
+                                .sort(function (a, b) {return new Date(b.date) - new Date(a.date);})
+                                .forEach(function (a) {
+                                    if (!completedDate && a.data.checkItem.state === "complete") completedDate = a.date;
+                                });
+                        }
+
+                        var isOverdue = item.due && item.state !== "complete" && new Date(item.due) < now;
+                        var daysSinceAssigned = (assignedDate && item.state !== "complete")
+                            ? Math.floor((now - new Date(assignedDate)) / 86400000)
+                            : null;
+
+                        rows.push({
+                            project: card.name,
+                            link: card.shortUrl,
+                            role: deriveRole(checklist.name),
+                            checklist: checklist.name,
+                            person: memberMap[item.idMember] || "Unknown",
+                            task: item.name,
+                            status: item.state === "complete" ? "completed" : "open",
+                            overdue: !!isOverdue,
+                            due: item.due,
+                            assignedDate: assignedDate,
+                            completedDate: completedDate,
+                            daysSinceAssigned: daysSinceAssigned
+                        });
+                    });
+                });
+            });
+
+            return rows;
+        }
+
+        function populateFilters(rows) {
+            function unique(arr) {return Array.from(new Set(arr)).sort();}
+            function fill(selectEl, values) {
+                values.forEach(function (v) {
+                    var opt = document.createElement("option");
+                    opt.value = v; opt.textContent = v;
+                    selectEl.appendChild(opt);
+                });
+            }
+            fill(document.getElementById("filterRole"), unique(rows.map(function (r) {return r.role;})));
+            fill(document.getElementById("filterPerson"), unique(rows.map(function (r) {return r.person;})));
+            fill(document.getElementById("filterProject"), unique(rows.map(function (r) {return r.project;})));
+        }
+
+        function currentFilters() {
+            return {
+                role: document.getElementById("filterRole").value,
+                person: document.getElementById("filterPerson").value,
+                project: document.getElementById("filterProject").value,
+                status: currentStatus
+            };
+        }
+
+        function applyFilters() {
+            var f = currentFilters();
+            var filtered = ALL_ROWS.filter(function (r) {
+                if (f.role && r.role !== f.role) return false;
+                if (f.person && r.person !== f.person) return false;
+                if (f.project && r.project !== f.project) return false;
+                if (f.status === "open" && r.status !== "open") return false;
+                if (f.status === "completed" && r.status !== "completed") return false;
+                return true;
+            });
+            renderTable(filtered);
+            renderTicker();
+        }
+
+        function renderTicker() {
+            var overdue = ALL_ROWS.filter(function (r) {return r.overdue;}).length;
+            var open = ALL_ROWS.filter(function (r) {return r.status === "open" && !r.overdue;}).length;
+            var completed = ALL_ROWS.filter(function (r) {return r.status === "completed";}).length;
+            document.getElementById("ticker").innerHTML =
+                '<span class="count-overdue"><span class="dot"></span>' + overdue + ' overdue</span>' +
+                '<span class="count-upcoming"><span class="dot"></span>' + open + ' open</span>' +
+                '<span class="count-completed"><span class="dot"></span>' + completed + ' completed</span>';
+        }
+
+        function statusPill(row) {
+            if (row.status === "completed") return '<span class="status-pill completed"><span class="dot"></span>Completed</span>';
+            if (row.overdue) return '<span class="status-pill overdue"><span class="dot"></span>Overdue</span>';
+            return '<span class="status-pill upcoming"><span class="dot"></span>Open</span>';
+        }
+
+        function esc(s) {
+            var d = document.createElement("div");
+            d.textContent = s == null ? "" : s;
+            return d.innerHTML;
+        }
+
+        function renderTable(rows) {
+            var content = document.getElementById("content");
+            if (rows.length === 0) {
+                content.innerHTML = '<div class="empty-state">No tasks match these filters.</div>';
+                return;
+            }
+            var html = '<div class="table-wrap"><table><thead><tr>' +
+                '<th>Project</th><th>Role</th><th>Person</th><th>Task</th><th>Status</th>' +
+                '<th>Assigned</th><th>Completed</th><th>Days Open</th><th>Link</th>' +
+                '</tr></thead><tbody>';
+
+            rows.forEach(function (r) {
+                var daysCell = r.daysSinceAssigned == null
+                    ? '<span class="days-badge">—</span>'
+                    : '<span class="days-badge' + (r.daysSinceAssigned > 14 ? ' stale' : '') + '">' + r.daysSinceAssigned + 'd</span>';
+
+                html += '<tr>' +
+                    '<td>' + esc(r.project) + '<br><span style="color:var(--text-muted); font-size:11px;">' + esc(r.checklist) + '</span></td>' +
+                    '<td>' + esc(r.role) + '</td>' +
+                    '<td>' + esc(r.person) + '</td>' +
+                    '<td>' + esc(r.task) + '</td>' +
+                    '<td>' + statusPill(r) + '</td>' +
+                    '<td>' + fmtDate(r.assignedDate) + '</td>' +
+                    '<td>' + fmtDate(r.completedDate) + '</td>' +
+                    '<td>' + daysCell + '</td>' +
+                    '<td><a href="' + esc(r.link) + '" target="_blank">Open</a></td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+        }
+
+        function exportCSV() {
+            var f = currentFilters();
+            var rows = ALL_ROWS.filter(function (r) {
+                if (f.role && r.role !== f.role) return false;
+                if (f.person && r.person !== f.person) return false;
+                if (f.project && r.project !== f.project) return false;
+                if (f.status === "open" && r.status !== "open") return false;
+                if (f.status === "completed" && r.status !== "completed") return false;
+                return true;
+            });
+            var header = ["Project", "Role", "Person", "Task", "Status", "Assigned", "Completed", "Days Open", "Link"];
+            var lines = [header.join(",")];
+            rows.forEach(function (r) {
+                var line = [
+                    r.project, r.role, r.person, r.task,
+                    r.status === "completed" ? "Completed" : (r.overdue ? "Overdue" : "Open"),
+                    fmtDate(r.assignedDate), fmtDate(r.completedDate),
+                    r.daysSinceAssigned == null ? "" : r.daysSinceAssigned,
+                    r.link
+                ].map(function (v) {return '"' + String(v).replace(/"/g, '""') + '"';});
+                lines.push(line.join(","));
+            });
+            var blob = new Blob([lines.join("\n")], {type: "text/csv"});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "benchtv-report-" + new Date().toISOString().slice(0, 10) + ".csv";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function wireControls() {
+            document.getElementById("filterRole").addEventListener("change", applyFilters);
+            document.getElementById("filterPerson").addEventListener("change", applyFilters);
+            document.getElementById("filterProject").addEventListener("change", applyFilters);
+            document.getElementById("exportBtn").addEventListener("click", exportCSV);
+            document.querySelectorAll(".status-toggle button").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    document.querySelectorAll(".status-toggle button").forEach(function (b) {b.classList.remove("active");});
+                    btn.classList.add("active");
+                    currentStatus = btn.getAttribute("data-status");
+                    applyFilters();
+                });
+            });
+        }
+
+        function init() {
+            t.board("id").then(function (board) {
+                BOARD_ID = board.id;
+
+                document.getElementById("filters").style.display = "flex";
+                wireControls();
+
+                loadData().then(function (rows) {
+                    ALL_ROWS = rows;
+                    populateFilters(rows);
+                    applyFilters();
+                }).catch(function (err) {
+                    document.getElementById("content").innerHTML =
+                        '<div class="empty-state">Could not load report data.<br><span style="font-size:12px;">' + esc(err.message) + '</span></div>';
+                });
+            });
+        }
+
+        t.render(function () {
+            init();
+        });
+    </script>
+</body>
+
+</html>

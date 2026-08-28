@@ -1,0 +1,337 @@
+:root {
+    --ink: #14181C;
+    --ink-soft: #1E242B;
+    --paper: #F4F5F7;
+    --paper-raised: #FFFFFF;
+    --border: #E2E5E9;
+    --text: #1B1F24;
+    --text-muted: #6B7280;
+    --signal-amber: #F2A93B;
+    --signal-red: #D64545;
+    --signal-green: #2E9B6F;
+    --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+    --font-body: "Inter", "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--paper);
+    color-scheme: light;
+}
+
+/* ---------- Settings popup ---------- */
+.settings-body {
+    padding: 16px;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.settings-form input {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--paper-raised);
+}
+
+.settings-form .hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.btn-primary {
+    background: var(--signal-amber);
+    color: var(--ink);
+    border: none;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.05);
+}
+
+/* ---------- Report shell ---------- */
+.report-header {
+    background: var(--ink);
+    color: #fff;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.report-header h1 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+
+.report-header .subtitle {
+    font-size: 12px;
+    color: #9AA1AA;
+    margin-top: 2px;
+}
+
+.ticker {
+    display: flex;
+    gap: 18px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.ticker .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.ticker .count-overdue .dot {
+    background: var(--signal-red);
+}
+
+.ticker .count-upcoming .dot {
+    background: var(--signal-amber);
+}
+
+.ticker .count-completed .dot {
+    background: var(--signal-green);
+}
+
+/* ---------- Filters ---------- */
+.filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px 24px;
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.filters select,
+.filters input[type="text"] {
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--text);
+    min-width: 140px;
+}
+
+.filters .status-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: auto;
+}
+
+.filters .status-toggle button {
+    border: none;
+    background: var(--paper);
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border);
+}
+
+.filters .status-toggle button:last-child {
+    border-right: none;
+}
+
+.filters .status-toggle button.active {
+    background: var(--ink);
+    color: #fff;
+}
+
+.btn-export {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.btn-export:hover {
+    background: var(--ink);
+    color: #fff;
+}
+
+/* ---------- Table ---------- */
+.table-wrap {
+    padding: 0 24px 40px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 13px;
+    background: var(--paper-raised);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20, 24, 28, 0.06);
+}
+
+thead th {
+    text-align: left;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--paper);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background: #FAFBFC;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 100px;
+}
+
+.status-pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.status-pill.overdue {
+    background: #FBEAEA;
+    color: var(--signal-red);
+}
+
+.status-pill.overdue .dot {
+    background: var(--signal-red);
+}
+
+.status-pill.upcoming {
+    background: #FCF3E3;
+    color: #B5741A;
+}
+
+.status-pill.upcoming .dot {
+    background: var(--signal-amber);
+}
+
+.status-pill.completed {
+    background: #E6F4EE;
+    color: var(--signal-green);
+}
+
+.status-pill.completed .dot {
+    background: var(--signal-green);
+}
+
+.days-badge {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.days-badge.stale {
+    color: var(--signal-red);
+    font-weight: 600;
+}
+
+td a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+}
+
+.loading-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.config-warning {
+    margin: 24px;
+    padding: 16px 20px;
+    border: 1px solid var(--signal-amber);
+    background: #FCF3E3;
+    border-radius: 8px;
+    font-size: 13px;
+}

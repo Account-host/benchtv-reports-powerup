@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body class="settings-body">
+    <form id="settingsForm" class="settings-form" autocomplete="off">
+        <label>Trello API Token
+            <input type="text" id="apiToken" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"
+                data-form-type="other" spellcheck="false" required>
+        </label>
+        <p class="hint">Shared board-wide (every board member uses this same token to view reports). Use the BenchTV
+            Automation account's token. Kept out of the public code for security.</p>
+        <button type="submit" class="btn-primary">Save</button>
+    </form>
+
+    <script>
+        var t = window.TrelloPowerUp.iframe({appName: "BenchTV Reports"});
+
+        t.get("board", "shared", "benchtvCred").then(function (v) {
+            if (v) document.getElementById("apiToken").value = v;
+        });
+
+        function withTimeout(promise, ms) {
+            var timeout = new Promise(function (_, reject) {
+                setTimeout(function () {reject(new Error("Timed out after " + (ms / 1000) + "s. Please try again."));}, ms);
+            });
+            return Promise.race([promise, timeout]);
+        }
+
+        document.getElementById("settingsForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            var token = document.getElementById("apiToken").value.trim();
+
+            if (!token) {
+                alert("Please enter a token.");
+                return;
+            }
+
+            var saveBtn = e.target.querySelector("button[type=submit]");
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Saving…";
+
+            withTimeout(t.set("board", "shared", "benchtvCred", token), 10000)
+                .then(function () {
+                    t.closePopup();
+                })
+                .catch(function (err) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = "Save";
+                    alert("Could not save token: " + (err && err.message ? err.message : err));
+                });
+        });
+
+        // IMPORTANT: tells Trello the iframe is ready, dismissing its loading
+        // overlay. Without this the form appears but stays unclickable.
+        t.render(function () {
+            t.sizeTo("body");
+        });
+    </script>
+</body>
+
+</html>
