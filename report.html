@@ -45,7 +45,7 @@
         var t = window.TrelloPowerUp.iframe({appName: "BenchTV Reports"});
         // Real Trello key/token now live server-side in the Cloudflare Worker
         // as secrets. This page never sees them - it only calls the proxy.
-        var WORKER_BASE = "https://benchtv-trello-proxy.YOUR_SUBDOMAIN.workers.dev/trello"; // TODO: set after deploying the worker
+        var WORKER_BASE = "https://benchtv-trello-proxy.benchtv.workers.dev/trello";
         var STORE_SECRET = "ee66f66d-c332-4ac5-9987-8632d7ee908e"; // TODO: also move this to the worker if it's sensitive
         // The tracker Zap's very first successful run wrote every pre-existing
         // assignment with this exact timestamp as a baseline (since it had no way
