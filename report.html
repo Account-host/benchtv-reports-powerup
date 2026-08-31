@@ -86,6 +86,9 @@
             ]).then(function (results) {
                 var cards = results[0], members = results[1], lists = results[2], assignmentStore = results[3] || {};
 
+                // TEMP DEBUG - remove after checking console
+                console.log("cardRole values:", cards.map(function (c) { return {name: c.name, cardRole: c.cardRole}; }));
+
                 var memberMap = {};
                 members.forEach(function (m) {memberMap[m.id] = m.fullName;});
 
