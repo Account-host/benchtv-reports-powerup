@@ -79,7 +79,7 @@
 
         function loadData() {
             return Promise.all([
-                apiGet("/boards/" + BOARD_ID + "/cards?checklists=all&checklist_fields=all&fields=name,shortUrl,idList,closed,idMembers,isTemplate"),
+                apiGet("/boards/" + BOARD_ID + "/cards?checklists=all&checklist_fields=all&fields=name,shortUrl,idList,closed,idMembers,cardRole"),
                 apiGet("/boards/" + BOARD_ID + "/members"),
                 apiGet("/boards/" + BOARD_ID + "/lists"),
                 fetch("https://store.zapier.com/api/records?secret=" + STORE_SECRET).then(function (r) {return r.json();}).catch(function () {return {};})
@@ -94,7 +94,7 @@
                     .map(function (l) {return l.id;});
 
                 var relevantCards = cards.filter(function (c) {
-                    return !c.closed && !c.isTemplate && templateListIds.indexOf(c.idList) === -1;
+                    return !c.closed && c.cardRole !== "template" && templateListIds.indexOf(c.idList) === -1;
                 });
 
                 // Only fetch card activity logs for cards with at least one completed
