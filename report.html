@@ -86,10 +86,6 @@
             ]).then(function (results) {
                 var cards = results[0], members = results[1], lists = results[2], assignmentStore = results[3] || {};
 
-                // TEMP DEBUG - remove after checking console
-                var debugCard = cards.filter(function (c) { return c.name === "test" || /consent to publish/i.test(c.name); });
-                console.log("FULL card objects for known templates:", JSON.stringify(debugCard, null, 2));
-
                 var memberMap = {};
                 members.forEach(function (m) {memberMap[m.id] = m.fullName;});
 
@@ -98,7 +94,7 @@
                     .map(function (l) {return l.id;});
 
                 var relevantCards = cards.filter(function (c) {
-                    return !c.closed && c.cardRole !== "template" && templateListIds.indexOf(c.idList) === -1;
+                    return !c.closed && !c.isTemplate && templateListIds.indexOf(c.idList) === -1;
                 });
 
                 // Only fetch card activity logs for cards with at least one completed
