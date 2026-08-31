@@ -79,7 +79,7 @@
 
         function loadData() {
             return Promise.all([
-                apiGet("/boards/" + BOARD_ID + "/cards?checklists=all&checklist_fields=all&fields=name,shortUrl,idList,closed,idMembers,cardRole"),
+                apiGet("/boards/" + BOARD_ID + "/cards?checklists=all&checklist_fields=all&fields=all"),
                 apiGet("/boards/" + BOARD_ID + "/members"),
                 apiGet("/boards/" + BOARD_ID + "/lists"),
                 fetch("https://store.zapier.com/api/records?secret=" + STORE_SECRET).then(function (r) {return r.json();}).catch(function () {return {};})
@@ -87,7 +87,8 @@
                 var cards = results[0], members = results[1], lists = results[2], assignmentStore = results[3] || {};
 
                 // TEMP DEBUG - remove after checking console
-                console.log("cardRole values:", cards.map(function (c) { return {name: c.name, cardRole: c.cardRole}; }));
+                var debugCard = cards.filter(function (c) { return c.name === "test" || /consent to publish/i.test(c.name); });
+                console.log("FULL card objects for known templates:", JSON.stringify(debugCard, null, 2));
 
                 var memberMap = {};
                 members.forEach(function (m) {memberMap[m.id] = m.fullName;});
