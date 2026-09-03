@@ -92,27 +92,6 @@ body {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    position: relative;
-}
-
-.close-btn {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.close-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
 }
 
 .report-header h1 {
