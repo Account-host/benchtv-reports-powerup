@@ -17,6 +17,7 @@
             <div class="subtitle">By role, by person, by project</div>
         </div>
         <div class="ticker" id="ticker"></div>
+        <button type="button" class="close-btn" id="closeBtn" aria-label="Close" title="Close">&times;</button>
     </div>
 
     <div class="filters" id="filters" style="display:none;">
@@ -43,20 +44,17 @@
 
     <script>
         var t = window.TrelloPowerUp.iframe({appName: "BenchTV Reports"});
-        // Real Trello key/token now live server-side in the Cloudflare Worker
-        // as secrets. This page never sees them - it only calls the proxy.
+        document.getElementById("closeBtn").addEventListener("click", function () {
+            t.closePopup();
+        });
+       
         var WORKER_BASE = "https://benchtv-trello-proxy.benchtv.workers.dev/trello";
-        var STORE_SECRET = "ee66f66d-c332-4ac5-9987-8632d7ee908e"; // TODO: also move this to the worker if it's sensitive
-        // The tracker Zap's very first successful run wrote every pre-existing
-        // assignment with this exact timestamp as a baseline (since it had no way
-        // to know their real assignment dates). Treat that specific timestamp as
-        // "unknown" rather than showing a misleading date.
+        var STORE_SECRET = "ee66f66d-c332-4ac5-9987-8632d7ee908e"; 
         var BASELINE_TIMESTAMP = "2026-08-27T09:25:49.513Z";
         var BOARD_ID = null;
         var ALL_ROWS = [];
         var currentStatus = "all";
 
-        // Derive a role name from a checklist name like "First Edit – Video Editor" -> "Video Editor"
         function deriveRole(checklistName) {
             var m = checklistName.match(/\s[–-]\s(.+)$/);
             return m ? m[1].trim() : checklistName;
