@@ -9,14 +9,14 @@
 
 <body>
     <script>
-        var ICON_LIGHT = "./icon-light.svg";
-        var ICON_DARK = "./icon-dark.svg";
+        var ICON_LIGHT = "https://account-host.github.io/reports-powerup/icon-light.svg";
+        var ICON_DARK = "https://account-host.github.io/reports-powerup/icon-dark.svg";
 
         window.TrelloPowerUp.initialize({
             "board-buttons": function (t, opts) {
                 return [{
                     icon: {dark: ICON_DARK, light: ICON_LIGHT},
-                    text: "Reports",
+                    text: "",
                     callback: function (t) {
                         return t.modal({
                             url: "./report.html",
